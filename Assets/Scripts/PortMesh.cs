@@ -4,15 +4,20 @@ using UnityEngine;
 
 public static class PortMesh
 {
-    public static Mesh Extrude(IList<Vector2> outline, float height)
+    // tileMeters: UV를 실제 미터 단위로 굽는 기준(= 텍스처 1장이 덮는 실제 크기). 이 값으로 나눈 좌표를 UV로 사용해 반복시킨다.
+    public static Mesh Extrude(IList<Vector2> outline, float height, float tileMeters = 8f)
     {
         int n = outline.Count;
         var verts = new List<Vector3>();
+        var uvs = new List<Vector2>();
         var tris  = new List<int>();
 
         // 윗면 (탑다운에서 실제로 보이는 면)
         for (int i = 0; i < n; i++)
+        {
             verts.Add(new Vector3(outline[i].x, height, outline[i].y));
+            uvs.Add(new Vector2(outline[i].x / tileMeters, outline[i].y / tileMeters));
+        }
         var cap = Triangulate(outline);
         tris.AddRange(cap);
 
@@ -21,16 +26,20 @@ public static class PortMesh
         {
             int next = (i + 1) % n;
             int b = verts.Count;
-            verts.Add(new Vector3(outline[i].x,    height, outline[i].y));
-            verts.Add(new Vector3(outline[next].x, height, outline[next].y));
-            verts.Add(new Vector3(outline[i].x,    0,      outline[i].y));
-            verts.Add(new Vector3(outline[next].x, 0,      outline[next].y));
+            float edgeLen = Vector2.Distance(outline[i], outline[next]) / tileMeters;
+            float hUv = height / tileMeters;
+            verts.Add(new Vector3(outline[i].x,    height, outline[i].y)); uvs.Add(new Vector2(0, hUv));
+            verts.Add(new Vector3(outline[next].x, height, outline[next].y)); uvs.Add(new Vector2(edgeLen, hUv));
+            verts.Add(new Vector3(outline[i].x,    0,      outline[i].y)); uvs.Add(new Vector2(0, 0));
+            verts.Add(new Vector3(outline[next].x, 0,      outline[next].y)); uvs.Add(new Vector2(edgeLen, 0));
             tris.Add(b); tris.Add(b + 2); tris.Add(b + 1);
             tris.Add(b + 1); tris.Add(b + 2); tris.Add(b + 3);
         }
 
         var mesh = new Mesh();
+        mesh.indexFormat = verts.Count > 65000 ? UnityEngine.Rendering.IndexFormat.UInt32 : UnityEngine.Rendering.IndexFormat.UInt16;
         mesh.SetVertices(verts);
+        mesh.SetUVs(0, uvs);
         mesh.SetTriangles(tris, 0);
         mesh.RecalculateNormals();
         mesh.RecalculateBounds();

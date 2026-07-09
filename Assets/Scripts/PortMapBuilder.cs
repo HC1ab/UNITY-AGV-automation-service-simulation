@@ -87,15 +87,12 @@ public class PortMapBuilder : MonoBehaviour
         go.transform.SetParent(transform, false);
         var mf = go.AddComponent<MeshFilter>();
         var mr = go.AddComponent<MeshRenderer>();
-        var mesh = PortMesh.Extrude(t.outline, t.height);
+        var mesh = PortMesh.Extrude(t.outline, t.height, terminalTextureMetersPerTile);
         mf.sharedMesh = mesh;
 
         if (terminalMat != null)
         {
-            var mat = new Material(terminalMat);
-            Bounds b = mesh.bounds;
-            mat.mainTextureScale = new Vector2(b.size.x / terminalTextureMetersPerTile, b.size.z / terminalTextureMetersPerTile);
-            mr.material = mat;
+            mr.material = new Material(terminalMat);
         }
         else
         {
@@ -232,5 +229,28 @@ public class PortMapBuilder : MonoBehaviour
                 new Berth{ id="MS4-03", pos=N(0.81f,0.475f) },
             }
         });
+
+        RecenterOn("PNC");
+    }
+
+    // 지정한 터미널의 좌하단 모서리(min x, min z)가 원점(0,0)에 오도록 전체 좌표를 이동
+    void RecenterOn(string terminalName)
+    {
+        var anchor = terminals.Find(t => t.name == terminalName);
+        if (anchor == null) return;
+
+        float minX = float.MaxValue, minZ = float.MaxValue;
+        foreach (var p in anchor.outline)
+        {
+            minX = Mathf.Min(minX, p.x);
+            minZ = Mathf.Min(minZ, p.y);
+        }
+
+        var offset = new Vector2(minX, minZ);
+        foreach (var t in terminals)
+        {
+            for (int i = 0; i < t.outline.Count; i++) t.outline[i] -= offset;
+            foreach (var b in t.berths) b.pos -= offset;
+        }
     }
 }
