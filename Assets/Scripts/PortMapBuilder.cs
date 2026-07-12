@@ -25,11 +25,8 @@ public class PortMapBuilder : MonoBehaviour
     [Tooltip("바다를 남쪽(Z-)으로 얼마나 늘릴지 (미터)")]
     public float seaExtendMeters = 3000f;
 
-    void Start()
-    {
-        Generate();
-    }
-
+    // 런타임에 자동 재생성하지 않음 — 에디터에서 "Generate Map"으로 한 번 구운 결과를
+    // 씬에 저장해두고 그대로 사용한다. Play를 눌러도 다시 만들지 않는다.
     [ContextMenu("Generate Map")]
     public void Generate()
     {
@@ -38,6 +35,9 @@ public class PortMapBuilder : MonoBehaviour
         BuildSampleData();
         if (buildWater) BuildWater();
         foreach (var t in terminals) BuildTerminal(t);
+
+        var fenceBuilder = GetComponent<PortFenceBuilder>();
+        if (fenceBuilder != null) fenceBuilder.BuildFences();
     }
 
     void BuildWater()
@@ -98,8 +98,6 @@ public class PortMapBuilder : MonoBehaviour
         {
             mr.material = new Material(Shader.Find("Unlit/Color")) { color = t.color };
         }
-
-        BuildBorder(go, t);
 
         foreach (var b in t.berths)
         {
