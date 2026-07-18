@@ -40,7 +40,7 @@ public class PortFenceBuilder : MonoBehaviour
         if (existing != null) DestroyImmediate(existing.gameObject);
     }
 
-    const float SharedEdgeEpsilon = 1f; // 미터. 인접 터미널 경계 좌표 오차 허용치
+    const float SharedEdgeEpsilon = 5f; // 미터. 인접 터미널 경계 좌표 오차 허용치
 
     // 선석(berth) 평균 위치에서 가장 가까운 변 = 안벽(수변)이므로 펜스를 세우지 않는다.
     // 다른 터미널과 맞닿은 변(터미널 사이 경계)도 육지 외곽이 아니므로 펜스를 세우지 않는다.

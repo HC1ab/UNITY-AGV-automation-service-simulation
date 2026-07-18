@@ -123,110 +123,109 @@ public class PortMapBuilder : MonoBehaviour
         mr.sharedMaterial = new Material(Shader.Find("Unlit/Color")) { color = borderColor };
     }
 
-    // 픽셀 대신 정규화 좌표(0~1, 왼쪽위 원점)로 지정 — 이미지 실제 해상도에 의존하지 않음
-    // 1 유닛 = 1미터(CLAUDE.md 기준). 안벽 합계 실측치(약 8,950m, 근사 9,000m)를 이미지 전체 폭 기준으로 매핑.
-    const float WorldW = 9000f;
-    const float WorldH = 9000f * (44f / 100f); // 이미지 비율(약 2.27:1) 유지 = 3960m
-    static Vector2 N(float nx, float ny) => new Vector2(nx * WorldW, (1f - ny) * WorldH);
+    // Assets/Textures/PortMap.png에서 색상 임계값(회색 부두 채움색) + 연결요소 분석 + 컨투어 추적으로
+    // 자동 추출한 정규화 좌표(0~1, 왼쪽위 원점). 사람이 눈대중으로 그린 게 아니라 이미지 픽셀에서 직접 뽑은 값이라
+    // 이미지의 실제 형태(오목한 모서리 포함)를 그대로 반영한다. (추출 스크립트: scratchpad/extract_outlines.py)
+    // 각 부두의 폭(안벽 방향 치수)만 CLAUDE.md 실측 안벽길이(m)로 대체하고, 깊이/간격 축은 원본 비율(*3960m)을 유지한다.
+    const float WorldH = 9000f * (44f / 100f); // 3960m. 원본 이미지 세로 비율 유지(깊이/간격 축 전용)
+    static float Z(float ny) => (1f - ny) * WorldH;
+
+    // 컨투어 추출 노이즈로 경계 근처에 거의 같은 값(수십m 이내)이 여러 개 잡히는 경우, 가장 바깥쪽 값으로 스냅해서
+    // 부두 경계가 깔끔한 직선이 되도록 한다(진짜 큰 모서리 형태는 이 허용치보다 훨씬 크므로 보존됨).
+    const float BoundarySnapTolerance = 0.012f; // 정규화 좌표 기준(~110m)
+
+    // pts: (nx, ny) 추출 좌표들. widthAxisIsX=true면 nx가 폭(실측 안벽길이) 축, false면 ny가 폭 축(DGT처럼 세로로 긴 부두).
+    static List<Vector2> MapByWidth(Vector2[] pts, bool widthAxisIsX, float widthStart, float realWidth)
+    {
+        float wMin = float.MaxValue, wMax = float.MinValue;
+        foreach (var p in pts)
+        {
+            float w = widthAxisIsX ? p.x : p.y;
+            wMin = Mathf.Min(wMin, w); wMax = Mathf.Max(wMax, w);
+        }
+        var result = new List<Vector2>();
+        foreach (var p in pts)
+        {
+            float w = widthAxisIsX ? p.x : p.y;
+            if (w - wMin < BoundarySnapTolerance) w = wMin;
+            else if (wMax - w < BoundarySnapTolerance) w = wMax;
+            float f = (w - wMin) / (wMax - wMin);
+            float widthCoord = widthStart + f * realWidth;
+            if (widthAxisIsX)
+                result.Add(new Vector2(widthCoord, Z(p.y)));
+            else
+                result.Add(new Vector2(p.x * 9000f, widthStart + (1f - f) * realWidth));
+        }
+        return result;
+    }
+
+    // 변 중 가장 긴 것을 안벽(квay)으로 간주하고 그 위에 선석을 균등 배치한다.
+    static List<Berth> BerthsOnLongestEdge(List<Vector2> outline, params string[] ids)
+    {
+        int bestI = 0; float bestLen = -1f;
+        for (int i = 0; i < outline.Count; i++)
+        {
+            Vector2 a = outline[i], b = outline[(i + 1) % outline.Count];
+            float len = Vector2.Distance(a, b);
+            if (len > bestLen) { bestLen = len; bestI = i; }
+        }
+        Vector2 qa = outline[bestI], qb = outline[(bestI + 1) % outline.Count];
+        var list = new List<Berth>();
+        int n = ids.Length;
+        for (int i = 0; i < n; i++)
+        {
+            float t = (i + 0.5f) / n;
+            list.Add(new Berth { id = ids[i], pos = Vector2.Lerp(qa, qb, t) });
+        }
+        return list;
+    }
 
     void BuildSampleData()
     {
-        terminals.Add(new Terminal
-        {
-            name = "DGT",
-            outline = new List<Vector2> {
-                N(0.00f,0.05f), N(0.09f,0.02f), N(0.115f,0.10f),
-                N(0.115f,0.30f), N(0.08f,0.46f), N(0.00f,0.40f)
-            },
-            berths = new List<Berth> {
-                new Berth{ id="MS7-01", pos=N(0.11f,0.14f) },
-                new Berth{ id="MS7-02", pos=N(0.11f,0.24f) },
-                new Berth{ id="MS7-03", pos=N(0.10f,0.34f) },
-            }
-        });
+        // ---- 북쪽 열: HJNC - PNC - PNIT ----
+        float hjncX0 = 0f, hjncX1 = hjncX0 + 1100f;    // 안벽 1,100m
+        float pncX0 = hjncX1, pncX1 = pncX0 + 2000f;   // 안벽 2,000m
+        float pnitX0 = pncX1, pnitX1 = pnitX0 + 1200f; // 안벽 1,200m
 
-        terminals.Add(new Terminal
-        {
-            name = "HJNC",
-            outline = new List<Vector2> {
-                N(0.165f,0.03f), N(0.280f,0.03f), N(0.280f,0.27f), N(0.165f,0.27f)
-            },
-            berths = new List<Berth> {
-                new Berth{ id="MS3-01", pos=N(0.185f,0.27f) },
-                new Berth{ id="MS3-02", pos=N(0.21f,0.27f) },
-                new Berth{ id="MS3-03", pos=N(0.235f,0.27f) },
-                new Berth{ id="MS3-04", pos=N(0.26f,0.27f) },
-            }
-        });
+        var hjncPts = new[] { new Vector2(0.2898f, 0.2777f), new Vector2(0.2839f, 0.2774f), new Vector2(0.2833f, 0.1967f), new Vector2(0.2654f, 0.1191f), new Vector2(0.2785f, 0.1006f), new Vector2(0.2739f, 0.0843f), new Vector2(0.2792f, 0.0736f), new Vector2(0.2944f, 0.0736f), new Vector2(0.3028f, 0.0573f), new Vector2(0.4450f, 0.0518f), new Vector2(0.4467f, 0.2703f) };
+        var pncPts = new[] { new Vector2(0.4591f, 0.2703f), new Vector2(0.4529f, 0.2700f), new Vector2(0.4512f, 0.0514f), new Vector2(0.7570f, 0.0370f), new Vector2(0.7580f, 0.2570f) };
+        var pnitPts = new[] { new Vector2(0.7707f, 0.2555f), new Vector2(0.7648f, 0.2552f), new Vector2(0.7632f, 0.0366f), new Vector2(0.9285f, 0.0292f), new Vector2(0.9659f, 0.0673f), new Vector2(0.9670f, 0.2467f) };
 
-        terminals.Add(new Terminal
-        {
-            name = "PNC",
-            outline = new List<Vector2> {
-                N(0.280f,0.03f), N(0.610f,0.03f), N(0.610f,0.27f), N(0.280f,0.27f)
-            },
-            berths = new List<Berth> {
-                new Berth{ id="MSN-04", pos=N(0.32f,0.27f) },
-                new Berth{ id="MSN-05", pos=N(0.375f,0.27f) },
-                new Berth{ id="MSN-06", pos=N(0.43f,0.27f) },
-                new Berth{ id="MSN-07", pos=N(0.485f,0.27f) },
-                new Berth{ id="MSN-08", pos=N(0.54f,0.27f) },
-                new Berth{ id="MSN-09", pos=N(0.585f,0.27f) },
-            }
-        });
+        var hjncOutline = MapByWidth(hjncPts, true, hjncX0, hjncX1 - hjncX0);
+        terminals.Add(new Terminal { name = "HJNC", outline = hjncOutline, berths = BerthsOnLongestEdge(hjncOutline, "MS3-01", "MS3-02", "MS3-03", "MS3-04") });
 
-        terminals.Add(new Terminal
-        {
-            name = "PNIT",
-            outline = new List<Vector2> {
-                N(0.610f,0.03f), N(0.93f,0.00f), N(0.965f,0.05f), N(0.965f,0.27f), N(0.610f,0.27f)
-            },
-            berths = new List<Berth> {
-                new Berth{ id="MSN-01", pos=N(0.66f,0.27f) },
-                new Berth{ id="MSN-02", pos=N(0.78f,0.27f) },
-                new Berth{ id="MSN-03", pos=N(0.90f,0.27f) },
-            }
-        });
+        var pncOutline = MapByWidth(pncPts, true, pncX0, pncX1 - pncX0);
+        terminals.Add(new Terminal { name = "PNC", outline = pncOutline, berths = BerthsOnLongestEdge(pncOutline, "MSN-04", "MSN-05", "MSN-06", "MSN-07", "MSN-08", "MSN-09") });
 
-        terminals.Add(new Terminal
-        {
-            name = "BCT",
-            outline = new List<Vector2> {
-                N(0.285f,0.68f), N(0.435f,0.60f), N(0.455f,0.90f), N(0.30f,0.98f)
-            },
-            berths = new List<Berth> {
-                new Berth{ id="MS6-01", pos=N(0.32f,0.68f) },
-                new Berth{ id="MS6-02", pos=N(0.365f,0.65f) },
-                new Berth{ id="MS6-03", pos=N(0.41f,0.62f) },
-            }
-        });
+        var pnitOutline = MapByWidth(pnitPts, true, pnitX0, pnitX1 - pnitX0);
+        terminals.Add(new Terminal { name = "PNIT", outline = pnitOutline, berths = BerthsOnLongestEdge(pnitOutline, "MSN-01", "MSN-02", "MSN-03") });
 
-        terminals.Add(new Terminal
-        {
-            name = "BNCT",
-            outline = new List<Vector2> {
-                N(0.435f,0.60f), N(0.575f,0.55f), N(0.595f,0.83f), N(0.455f,0.90f)
-            },
-            berths = new List<Berth> {
-                new Berth{ id="MS5-01", pos=N(0.46f,0.62f) },
-                new Berth{ id="MS5-02", pos=N(0.495f,0.60f) },
-                new Berth{ id="MS5-03", pos=N(0.53f,0.585f) },
-                new Berth{ id="MS5-04", pos=N(0.565f,0.565f) },
-            }
-        });
+        // ---- 남쪽 열: BCT - BNCT - HPNT ----
+        float bctX0 = 200f, bctX1 = bctX0 + 1050f;      // 안벽 1,050m
+        float bnctX0 = bctX1, bnctX1 = bnctX0 + 1400f;  // 안벽 1,400m
+        float hpntX0 = bnctX1, hpntX1 = hpntX0 + 1150f; // 안벽 1,150m
 
-        terminals.Add(new Terminal
-        {
-            name = "HPNT",
-            outline = new List<Vector2> {
-                N(0.575f,0.55f), N(0.83f,0.45f), N(0.965f,0.62f), N(0.90f,0.78f), N(0.595f,0.83f)
-            },
-            berths = new List<Berth> {
-                new Berth{ id="MS4-01", pos=N(0.63f,0.55f) },
-                new Berth{ id="MS4-02", pos=N(0.72f,0.51f) },
-                new Berth{ id="MS4-03", pos=N(0.81f,0.475f) },
-            }
-        });
+        var bctPts = new[] { new Vector2(0.4261f, 0.9811f), new Vector2(0.4079f, 0.7918f), new Vector2(0.5719f, 0.7064f), new Vector2(0.5869f, 0.8953f) };
+        var bnctPts = new[] { new Vector2(0.5963f, 0.8865f), new Vector2(0.5793f, 0.7016f), new Vector2(0.7657f, 0.6028f), new Vector2(0.7826f, 0.7888f) };
+        var hpntPts = new[] { new Vector2(0.7916f, 0.7874f), new Vector2(0.7732f, 0.5980f), new Vector2(0.9400f, 0.5070f), new Vector2(0.9684f, 0.5059f), new Vector2(0.9690f, 0.5436f), new Vector2(0.9635f, 0.6028f), new Vector2(0.9416f, 0.6490f), new Vector2(0.8595f, 0.7008f), new Vector2(0.8413f, 0.7230f), new Vector2(0.8168f, 0.7703f) };
+
+        var bctOutline = MapByWidth(bctPts, true, bctX0, bctX1 - bctX0);
+        terminals.Add(new Terminal { name = "BCT", outline = bctOutline, berths = BerthsOnLongestEdge(bctOutline, "MS6-01", "MS6-02", "MS6-03") });
+
+        var bnctOutline = MapByWidth(bnctPts, true, bnctX0, bnctX1 - bnctX0);
+        terminals.Add(new Terminal { name = "BNCT", outline = bnctOutline, berths = BerthsOnLongestEdge(bnctOutline, "MS5-01", "MS5-02", "MS5-03", "MS5-04") });
+
+        var hpntOutline = MapByWidth(hpntPts, true, hpntX0, hpntX1 - hpntX0);
+        terminals.Add(new Terminal { name = "HPNT", outline = hpntOutline, berths = BerthsOnLongestEdge(hpntOutline, "MS4-01", "MS4-02", "MS4-03") });
+
+        // ---- DGT: 세로로 긴 독립 부두. 안벽길이(1,050m)가 세로(북남, ny) 축.
+        // z 앵커는 0이 아니라 원본 이미지에서의 실제 위치(Z(ny))를 사용해야 북쪽 열(HJNC 등)과 같은 밴드에 위치한다.
+        var dgtPts = new[] { new Vector2(0.0339f, 0.4834f), new Vector2(0.0289f, 0.4830f), new Vector2(0.0271f, 0.2559f), new Vector2(0.0138f, 0.1916f), new Vector2(0.0126f, 0.0710f), new Vector2(0.1124f, 0.0662f), new Vector2(0.1155f, 0.4786f) };
+        float dgtNyMax = float.MinValue;
+        foreach (var p in dgtPts) dgtNyMax = Mathf.Max(dgtNyMax, p.y);
+        float dgtZ0 = Z(dgtNyMax); // ny가 가장 큰(이미지에서 가장 아래=남쪽) 점의 실제 Z 위치를 시작점으로 삼는다
+        var dgtOutline = MapByWidth(dgtPts, false, dgtZ0, 1050f);
+        terminals.Add(new Terminal { name = "DGT", outline = dgtOutline, berths = BerthsOnLongestEdge(dgtOutline, "MS7-01", "MS7-02", "MS7-03") });
 
         RecenterOn("PNC");
     }
