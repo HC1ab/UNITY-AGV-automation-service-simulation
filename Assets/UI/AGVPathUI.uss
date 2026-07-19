@@ -1,0 +1,22 @@
+.panel {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    width: 390px;
+    padding: 12px;
+    background-color: rgba(20, 20, 20, 0.75);
+    border-radius: 6px;
+}
+
+.title {
+    color: rgb(255, 255, 255);
+    font-size: 16px;
+    margin-bottom: 8px;
+    -unity-font-style: bold;
+}
+
+.status {
+    color: rgb(255, 220, 80);
+    margin-top: 6px;
+    white-space: normal;
+}

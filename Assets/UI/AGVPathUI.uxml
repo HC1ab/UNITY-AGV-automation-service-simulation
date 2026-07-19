@@ -1,0 +1,10 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <ui:Style src="project://database/Assets/UI/AGVPathUI.uss" />
+    <ui:VisualElement name="root" class="panel">
+        <ui:Label text="AGV 경로 지정" class="title" />
+        <ui:DropdownField label="출발" name="start-dropdown" />
+        <ui:DropdownField label="도착" name="goal-dropdown" />
+        <ui:Button text="경로 이동" name="go-button" />
+        <ui:Label text="" name="status-label" class="status" />
+    </ui:VisualElement>
+</ui:UXML>

@@ -1,0 +1,94 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c9920710730f2d748bba76d8df21be1c, type: 3}
+  m_Name: RoadGraph_TestYard
+  m_EditorClassIdentifier: Assembly-CSharp::RoadGraphData
+  nodes:
+  - id: R0C0
+    position: {x: 300, y: 0.05, z: -400}
+  - id: R0C1
+    position: {x: 350, y: 0.05, z: -400}
+  - id: R0C2
+    position: {x: 400, y: 0.05, z: -400}
+  - id: R1C0
+    position: {x: 300, y: 0.05, z: -350}
+  - id: R1C1
+    position: {x: 350, y: 0.05, z: -350}
+  - id: R1C2
+    position: {x: 400, y: 0.05, z: -350}
+  - id: R2C0
+    position: {x: 300, y: 0.05, z: -300}
+  - id: R2C1
+    position: {x: 350, y: 0.05, z: -300}
+  - id: R2C2
+    position: {x: 400, y: 0.05, z: -300}
+  edges:
+  - fromId: R0C0
+    toId: R0C1
+    waypoints:
+    - {x: 300, y: 0.05, z: -400}
+    - {x: 350, y: 0.05, z: -400}
+  - fromId: R0C0
+    toId: R1C0
+    waypoints:
+    - {x: 300, y: 0.05, z: -400}
+    - {x: 300, y: 0.05, z: -350}
+  - fromId: R0C1
+    toId: R0C2
+    waypoints:
+    - {x: 350, y: 0.05, z: -400}
+    - {x: 400, y: 0.05, z: -400}
+  - fromId: R0C1
+    toId: R1C1
+    waypoints:
+    - {x: 350, y: 0.05, z: -400}
+    - {x: 350, y: 0.05, z: -350}
+  - fromId: R0C2
+    toId: R1C2
+    waypoints:
+    - {x: 400, y: 0.05, z: -400}
+    - {x: 400, y: 0.05, z: -350}
+  - fromId: R1C0
+    toId: R1C1
+    waypoints:
+    - {x: 300, y: 0.05, z: -350}
+    - {x: 350, y: 0.05, z: -350}
+  - fromId: R1C0
+    toId: R2C0
+    waypoints:
+    - {x: 300, y: 0.05, z: -350}
+    - {x: 300, y: 0.05, z: -300}
+  - fromId: R1C1
+    toId: R1C2
+    waypoints:
+    - {x: 350, y: 0.05, z: -350}
+    - {x: 400, y: 0.05, z: -350}
+  - fromId: R1C1
+    toId: R2C1
+    waypoints:
+    - {x: 350, y: 0.05, z: -350}
+    - {x: 350, y: 0.05, z: -300}
+  - fromId: R1C2
+    toId: R2C2
+    waypoints:
+    - {x: 400, y: 0.05, z: -350}
+    - {x: 400, y: 0.05, z: -300}
+  - fromId: R2C0
+    toId: R2C1
+    waypoints:
+    - {x: 300, y: 0.05, z: -300}
+    - {x: 350, y: 0.05, z: -300}
+  - fromId: R2C1
+    toId: R2C2
+    waypoints:
+    - {x: 350, y: 0.05, z: -300}
+    - {x: 400, y: 0.05, z: -300}
